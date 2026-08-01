@@ -8,11 +8,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -32,31 +34,39 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun KidsMoneyApp() {
     val navController = rememberNavController()
-    val flowState = remember { AddMoneyState() }
     val context = LocalContext.current
+    val application = context.applicationContext as KidsMoneyApplication
+    val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory(application.container.repository))
+    val addMoneyViewModel: AddMoneyViewModel = viewModel(factory = AddMoneyViewModel.Factory(application.container.repository))
+    val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
 
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
             KidsMoneyHomeScreen(
+                viewModel = homeViewModel,
                 onAddMoney = {
-                    flowState.clear()
+                    addMoneyViewModel.clear()
                     navController.navigate("add/child")
                 },
             )
         }
         addMoneyGraph(
             navController = navController,
-            state = flowState,
+            state = addMoneyViewModel.form,
+            children = homeState.children,
             onCancel = {
-                flowState.clear()
+                addMoneyViewModel.clear()
                 navController.popBackStack("home", inclusive = false)
             },
+            isSaving = addMoneyViewModel.isSaving,
+            errorMessage = addMoneyViewModel.errorMessage,
             onSave = {
-                Toast.makeText(context, "הכסף נוסף בהצלחה", Toast.LENGTH_SHORT).show()
-                flowState.clear()
-                navController.navigate("home") {
-                    popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
-                    launchSingleTop = true
+                addMoneyViewModel.save {
+                    Toast.makeText(context, "הכסף נוסף בהצלחה", Toast.LENGTH_SHORT).show()
+                    navController.navigate("home") {
+                        popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                        launchSingleTop = true
+                    }
                 }
             },
         )

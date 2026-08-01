@@ -29,6 +29,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.kidsmoney.data.ChildBalance
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,11 +44,9 @@ import androidx.compose.ui.unit.sp
 
 private val BalanceGreen = Color(0xFF18864B)
 private val WithdrawalRed = Color(0xFFC62828)
-private data class Child(val name: String, val balance: Int)
-private val children = listOf(Child("אגם", 450), Child("בן", 320), Child("יאיר", 180))
-
 @Composable
-fun KidsMoneyHomeScreen(onAddMoney: () -> Unit) {
+fun KidsMoneyHomeScreen(viewModel: HomeViewModel, onAddMoney: () -> Unit) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     Scaffold(containerColor = ScreenBackground, bottomBar = { HomeBottomBar() }) { innerPadding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(innerPadding)
@@ -56,9 +57,13 @@ fun KidsMoneyHomeScreen(onAddMoney: () -> Unit) {
                 fontSize = 30.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start,
             )
             Spacer(Modifier.height(24.dp))
-            children.forEach { child -> ChildCard(child); Spacer(Modifier.height(14.dp)) }
+            when {
+                uiState.isLoading -> Text("טוען נתונים…", Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                uiState.children.isEmpty() -> Text("אין ילדים להצגה", Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                else -> uiState.children.forEach { child -> ChildCard(child); Spacer(Modifier.height(14.dp)) }
+            }
             Spacer(Modifier.height(10.dp))
-            ActionButton("הוספת כסף", Purple, onClick = onAddMoney)
+            ActionButton("הוספת כסף", Purple, enabled = !uiState.isLoading && uiState.children.isNotEmpty(), onClick = onAddMoney)
             Spacer(Modifier.height(12.dp))
             ActionButton("משיכת כסף", WithdrawalRed, enabled = false)
         }
@@ -66,7 +71,7 @@ fun KidsMoneyHomeScreen(onAddMoney: () -> Unit) {
 }
 
 @Composable
-private fun ChildCard(child: Child) {
+private fun ChildCard(child: ChildBalance) {
     Card(
         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -121,4 +126,8 @@ private fun androidx.compose.foundation.layout.RowScope.BottomBarItem(
 
 @Preview(showBackground = true, locale = "iw")
 @Composable
-private fun HomeScreenPreview() { KidsMoneyTheme { KidsMoneyHomeScreen {} } }
+private fun HomeScreenPreview() {
+    KidsMoneyTheme {
+        ChildCard(ChildBalance(1, "אגם", 0))
+    }
+}

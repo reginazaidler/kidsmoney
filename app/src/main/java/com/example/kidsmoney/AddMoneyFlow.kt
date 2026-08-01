@@ -43,9 +43,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import com.example.kidsmoney.data.ChildBalance
 
 @Stable
 class AddMoneyState {
+    var childId by mutableStateOf<Long?>(null)
     var child by mutableStateOf<String?>(null)
     var moneyType by mutableStateOf<String?>(null)
     var source by mutableStateOf<String?>(null)
@@ -58,19 +60,25 @@ class AddMoneyState {
     }
 
     fun clear() {
-        child = null; moneyType = null; source = null; client = null; amount = ""
+        childId = null; child = null; moneyType = null; source = null; client = null; amount = ""
     }
 }
 
 fun NavGraphBuilder.addMoneyGraph(
     navController: NavHostController,
     state: AddMoneyState,
+    children: List<ChildBalance>,
     onCancel: () -> Unit,
     onSave: () -> Unit,
+    isSaving: Boolean,
+    errorMessage: String?,
 ) {
     composable("add/child") {
-        SelectionStep("למי מוסיפים כסף?", 1, listOf("אגם", "בן", "יאיר"), state.child,
-            onSelect = { state.child = it }, onBack = { navController.popBackStack() },
+        SelectionStep("למי מוסיפים כסף?", 1, children.map { it.name }, state.child,
+            onSelect = { name ->
+                state.child = name
+                state.childId = children.firstOrNull { it.name == name }?.id
+            }, onBack = { navController.popBackStack() },
             onContinue = { navController.navigate("add/type") })
     }
     composable("add/type") {
@@ -96,7 +104,8 @@ fun NavGraphBuilder.addMoneyGraph(
             onBack = { navController.popBackStack() }, onContinue = { navController.navigate("add/review") })
     }
     composable("add/review") {
-        ReviewStep(state, onBack = { navController.popBackStack() }, onSave = onSave,
+        ReviewStep(state, onBack = { if (!isSaving) navController.popBackStack() }, onSave = onSave,
+            isSaving = isSaving, errorMessage = errorMessage,
             onEdit = { navController.popBackStack() }, onCancel = onCancel)
     }
 }
@@ -180,6 +189,7 @@ private fun ContinueButton(enabled: Boolean, onClick: () -> Unit) {
 @Composable
 private fun ReviewStep(
     state: AddMoneyState, onBack: () -> Unit, onSave: () -> Unit, onEdit: () -> Unit, onCancel: () -> Unit,
+    isSaving: Boolean, errorMessage: String?,
 ) {
     StepScaffold("בדיקת הפרטים", 6, onBack) {
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(Color.White)) {
@@ -192,14 +202,18 @@ private fun ReviewStep(
             }
         }
         Spacer(Modifier.height(24.dp))
-        Button(onSave, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(16.dp)) {
-            Text("שמירה", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        errorMessage?.let {
+            Text(it, Modifier.fillMaxWidth(), color = Color(0xFFC62828), textAlign = TextAlign.Center)
+            Spacer(Modifier.height(12.dp))
+        }
+        Button(onSave, Modifier.fillMaxWidth().height(56.dp), enabled = !isSaving, shape = RoundedCornerShape(16.dp)) {
+            Text(if (isSaving) "שומר…" else "שמירה", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(onEdit, Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp)) { Text("חזרה לעריכה") }
+        OutlinedButton(onEdit, Modifier.fillMaxWidth().height(54.dp), enabled = !isSaving, shape = RoundedCornerShape(16.dp)) { Text("חזרה לעריכה") }
         Spacer(Modifier.height(10.dp))
         Button(
-            onCancel, Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp),
+            onCancel, Modifier.fillMaxWidth().height(54.dp), enabled = !isSaving, shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Purple),
         ) { Text("ביטול") }
     }
